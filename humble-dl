@@ -14,14 +14,14 @@ def get_parameters(argv):
     parser.add_argument(
         "-s",
         "--save",
-        help="Openvpn Config file",
+        help="Download dir for books",
         required=True,
         type=validate_path,
     )
     parser.add_argument(
         "-u",
         "--url",
-        help="List of High Value Proceeses to Watch",
+        help="Book bundle URL",
         nargs="+",
         required=True,
         type=validate_url,
