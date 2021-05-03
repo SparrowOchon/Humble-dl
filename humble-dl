@@ -1,0 +1,80 @@
+#!/bin/python3
+
+import argparse
+import sys
+import asyncio
+import re
+from pathlib import Path
+from bs4 import BeautifulSoup
+from requests import get
+from libgenesis import Libgen
+
+HUMBLE_BOOKS_REGEX = "http[s]?:\/\/(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+\/books\/.*"
+URL_REGEX = re.compile(HUMBLE_BOOKS_REGEX)
+
+
+def get_parameters(argv):
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-s",
+        "--save",
+        help="Openvpn Config file",
+        required=True,
+        type=validate_path,
+    )
+    parser.add_argument(
+        "-u",
+        "--url",
+        help="List of High Value Proceeses to Watch",
+        nargs="+",
+        required=True,
+        type=validate_url,
+    )
+    args = parser.parse_args()
+    return args.save, args.url[0]
+
+
+def make_book_list(url):
+    main_html = get(url).text
+    soup = BeautifulSoup(main_html, "html.parser")
+    spans = soup.find_all("span", {"class": "front-page-art-image-text"})
+    return [span.get_text() for span in spans]
+
+
+def validate_url(url):
+    humble_books_regex = "http[s]?:\/\/(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+\/books\/.*"
+    url_regex = re.compile(humble_books_regex)
+    if url is None or not (re.search(url_regex, url)):
+        print("Invalid URL. Please enter a valid HumbleBundle Books url")
+        exit(1)
+    else:
+        return url
+
+
+def validate_path(path):
+    file_path = Path(path).resolve()
+    if not file_path.exists() and not file_path.is_dir():
+        print("Invalid Directory. Please enter a valid directory to store books too")
+        exit(1)
+    else:
+        return file_path
+
+
+async def download_books(book_list, save_path):
+    lg = Libgen()
+    for book in book_list:
+        print(book)
+        result = await lg.search(book)
+        for item in result:
+            await lg.download(
+                result[item]["mirrors"]["main"], dest_folder=save_path
+            )
+            break
+
+
+if __name__ == "__main__":
+    loop = asyncio.get_event_loop()
+    save_path, url = get_parameters(sys.argv)
+    book_list = make_book_list(url)
+    loop.run_until_complete(download_books(book_list, save_path))
+    loop.close()
